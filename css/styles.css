@@ -784,6 +784,10 @@ details.more[open] > summary { margin-bottom: 12px; color: var(--accent-text); }
 .empty-note { padding: 16px; text-align: center; color: var(--ink-3); font-size: 13.5px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); list-style: none; }
 
 /* ---------- Wirtschaftlichkeit ---------- */
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 18px; }
+.segmented-xs { padding: 2px; border-radius: 8px; }
+.segmented-xs button { height: 22px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.eco-self { gap: 6px; }
 .eco-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
 .eco-stats > div { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); min-width: 0; }
 .eco-stats span { display: block; font-size: 12px; color: var(--ink-3); }

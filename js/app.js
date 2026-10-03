@@ -8,7 +8,7 @@
   const LEGACY_KEY = 'solarplaner.state.v1';
   const APP_ID = 'agapov-pv-planer';
   const APP_NAME = 'Agapovs PV-Planer';
-  const APP_VERSION = '16'; // muss zu version.json und den ?v= in index.html passen
+  const APP_VERSION = '17'; // muss zu version.json und den ?v= in index.html passen
   const CONFIG_KEYS = ['project', 'modules', 'inverters', 'components', 'mounting', 'externals', 'economy'];
   const D = window.SP_DEFAULTS;
   const Shop = window.SPShop;
@@ -127,6 +127,7 @@
     // Konfigurationen von vor dem Shop-Katalog: Versand auf 199 € je Palette umstellen
     const legacyModules = s && s.modules && !s.modules.source;
     const legacyBuyMode = !(s && s.modules && s.modules.buyModeV);
+    const legacyEco = !!(s && s.economy && !s.economy.selfMode);
     s = deepMerge(d, s || {});
     if (legacyModules) s.modules.shipping = clone(d.modules.shipping);
     if (s.modules.shipping.mode === 'perPallet' && num(s.modules.shipping.amount) === 199) s.modules.shipping.mode = 'shop24';
@@ -134,6 +135,8 @@
     if (!s.moduleCatalog || !Array.isArray(s.moduleCatalog.items) || !s.moduleCatalog.items.length) s.moduleCatalog = d.moduleCatalog;
     if (!['single', 'pallet', 'mixed'].includes(s.modules.buyMode)) s.modules.buyMode = 'mixed';
     // frühere Voreinstellung „Palette“ → „Optimal“ (sonst kostet z. B. das 38. Modul eine ganze zweite Palette)
+    // ältere Konfigurationen: Standard-40 % → 6.930 kWh (gleicher Wert bei 37 × 465 Wp), sonst bei % bleiben
+    if (legacyEco) s.economy.selfMode = num(s.economy.selfPct) === 40 ? 'kwh' : 'pct';
     if (legacyBuyMode) { if (s.modules.buyMode === 'pallet') s.modules.buyMode = 'mixed'; s.modules.buyModeV = 2; }
     if (!['shop', 'manual'].includes(s.modules.source)) s.modules.source = 'shop';
     // Listen auffüllen, damit importierte/alte Daten vollständig sind
@@ -541,7 +544,8 @@
     // Wirtschaftlichkeit
     const E = s.economy;
     const prod = kwp * num(E.specificYield);
-    const self = prod * clamp(num(E.selfPct), 0, 100) / 100;
+    const selfWanted = E.selfMode === 'kwh' ? Math.max(0, num(E.selfKwh)) : prod * clamp(num(E.selfPct), 0, 100) / 100;
+    const self = Math.min(selfWanted, prod);
     const feed = prod - self;
     const savings = self * num(E.priceCt) / 100 + feed * num(E.feedCt) / 100;
     const payback = savings > 0 ? total / savings : Infinity;
@@ -550,7 +554,7 @@
       n, wp, kwp, spec, purchase, delivered, weight, shipInfo, modCost, ship, inv, invCost, acKw, invCount, dcac: acKw > 0 ? kwp / acKw : null,
       cmp, cmpCost, mnt, mntCost, layout, asd, extRows, montage,
       positions, own, ext: extSum, total, cats,
-      eco: { prod, self, feed, savings, payback, bal20: savings * 20 - total }
+      eco: { prod, self, selfWanted, feed, savings, payback, bal20: savings * 20 - total }
     };
   }
 
@@ -1012,11 +1016,18 @@
   }
 
   function renderEconomy() {
+    const E = state.economy;
     $('#economyBody').innerHTML =
       '<div class="grid grid-4">' +
         field({ label: 'Spez. Ertrag (kWh/kWp)', bind: 'economy.specificYield', suffix: 'kWh', arrows: true, step: 10, min: 0, hint: 'Aus der Simulation: 1.007' }) +
         field({ label: 'Strompreis (ct/kWh)', bind: 'economy.priceCt', suffix: 'ct', arrows: true, step: 0.5, min: 0 }) +
-        field({ label: 'Eigenverbrauch', bind: 'economy.selfPct', suffix: '%', arrows: true, step: 5, min: 0, max: 100 }) +
+        '<div class="field eco-self"><div class="label-row"><span class="field-label">Eigenverbrauch</span>' +
+          '<div class="segmented segmented-xs" role="radiogroup" aria-label="Einheit Eigenverbrauch">' + [['kwh', 'kWh'], ['pct', '%']].map(o =>
+            '<button type="button" role="radio" aria-checked="' + (E.selfMode === o[0]) + '" class="' + (E.selfMode === o[0] ? 'is-active' : '') + '" data-action="eco-mode" data-value="' + o[0] + '">' + o[1] + '</button>').join('') + '</div></div>' +
+          (E.selfMode === 'kwh'
+            ? field({ bind: 'economy.selfKwh', type: 'int', suffix: 'kWh/Jahr', arrows: true, step: 100, min: 0, aria: 'Eigenverbrauch in kWh pro Jahr' })
+            : field({ bind: 'economy.selfPct', suffix: '% vom Ertrag', arrows: true, step: 5, min: 0, max: 100, aria: 'Eigenverbrauch in Prozent' })) +
+          '<span class="field-hint" data-out="ecoSelfHint"></span></div>' +
         field({ label: 'Einspeisung (ct/kWh)', bind: 'economy.feedCt', suffix: 'ct', arrows: true, step: 0.1, min: 0, hint: 'Bitte aktuellen EEG-Satz prüfen' }) +
       '</div>' +
       '<div class="eco-stats">' +
@@ -1190,8 +1201,12 @@
     out.sumExt = eur(r.ext);
 
     out.ecoProd = NF.n0.format(r.eco.prod) + ' kWh';
-    out.ecoSelf = NF.n0.format(r.eco.self) + ' kWh';
-    out.ecoFeed = NF.n0.format(r.eco.feed) + ' kWh';
+    const ePct = v => r.eco.prod > 0 ? ' (' + NF.n1.format(v / r.eco.prod * 100) + ' %)' : '';
+    out.ecoSelf = NF.n0.format(r.eco.self) + ' kWh' + ePct(r.eco.self);
+    out.ecoFeed = NF.n0.format(r.eco.feed) + ' kWh' + ePct(r.eco.feed);
+    out.ecoSelfHint = s.economy.selfMode === 'kwh'
+      ? (r.eco.selfWanted > r.eco.prod ? 'Mehr als der Ertrag – begrenzt auf ' + NF.n0.format(r.eco.prod) + ' kWh' : '≈ ' + NF.n1.format(r.eco.prod > 0 ? r.eco.self / r.eco.prod * 100 : 0) + ' % des Jahresertrags')
+      : '≈ ' + NF.n0.format(r.eco.self) + ' kWh pro Jahr';
     out.ecoSave = eur(r.eco.savings);
     out.ecoBal = eur(r.eco.bal20);
 
@@ -1622,6 +1637,18 @@
       case 'ext-remove': {
         const it = state.externals[idx];
         if (await confirmBox('Position entfernen?', '„' + (it.label || 'Position') + '“ wird aus der Planung entfernt.', 'Entfernen')) { state.externals.splice(idx, 1); renderLabor(); update(); }
+        break;
+      }
+      case 'eco-mode': {
+        const E = state.economy, v = a.dataset.value;
+        if (E.selfMode !== v) {
+          const prod = ui.r ? ui.r.eco.prod : 0;
+          // umrechnen, damit das Ergebnis beim Wechsel gleich bleibt
+          if (v === 'kwh') E.selfKwh = Math.round(prod * clamp(num(E.selfPct), 0, 100) / 100);
+          else E.selfPct = prod > 0 ? Math.round(Math.min(num(E.selfKwh), prod) / prod * 1000) / 10 : num(E.selfPct);
+          E.selfMode = v;
+          renderEconomy(); update();
+        }
         break;
       }
       case 'asd-set': {
