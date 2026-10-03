@@ -1,0 +1,4 @@
+# Lokale Dateien, nicht Teil der Webseite
+MK_37_Module.xlsx
+*.xlsx
+.claude/

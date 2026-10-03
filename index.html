@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="de" data-theme="dark" data-mode="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Agapovs PV-Planer</title>
+  <meta name="description" content="Agapovs PV-Planer – dynamische Kostenplanung für PV-Anlagen – Module, Wechselrichter, Montagesystem, Montage und Anschluss.">
+  <meta name="theme-color" content="#0e1014">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fbbf24'/%3E%3Cstop offset='1' stop-color='%23f97316'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='url(%23g)'/%3E%3Cg fill='none' stroke='%231b1204' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='33' cy='14' r='5'/%3E%3Cpath d='M33 4.5v2M33 21.5v2M42.5 14h-2M25.5 14h-2M39.7 7.3l-1.4 1.4M27.7 19.3l-1.4 1.4M39.7 20.7l-1.4-1.4M27.7 8.7l-1.4-1.4'/%3E%3Cpath d='M7 41l5-14h24l5 14z M9.5 34h29 M20 27l-1.7 14 M28 27l1.7 14'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css?v=11">
+  <script>
+    /* Theme vor dem ersten Rendern setzen (kein Aufblitzen) */
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('agapov.pvplaner.v2') || 'null');
+        var t = (s && s.settings && s.settings.theme) || 'dark';
+        var dark = { dark: 1, glass: 1, solar: 1 };
+        var mode = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : (dark[t] ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t === 'auto' ? mode : t);
+        document.documentElement.setAttribute('data-mode', mode);
+      } catch (e) { /* Standard: dark */ }
+    })();
+  </script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+      <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8M21 3v5h-5"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></symbol>
+      <symbol id="i-ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+      <symbol id="i-panel" viewBox="0 0 24 24"><path d="M4 4h16l-1.5 16h-13L4 4zM4.6 10h14.8M5.1 15h13.8M12 4v16"/></symbol>
+      <symbol id="i-inverter" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M7.5 11q2.25-4 4.5 0t4.5 0M8 16.5h8"/></symbol>
+      <symbol id="i-battery" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M10 2h4M12.5 8.5l-2 4h3.5l-2 4"/></symbol>
+      <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8zM12 18v4"/></symbol>
+      <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4 2.5-2.5z"/></symbol>
+      <symbol id="i-hardhat" viewBox="0 0 24 24"><path d="M2 18h20M4 18v-3a8 8 0 0 1 16 0v3M10 7.5V5h4v2.5M8.5 9.5 8 13M15.5 9.5 16 13"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="9" cy="9" r="6"/><path d="M15.5 9.2A6 6 0 1 1 9.2 15.5M7.5 7.5h3v3"/></symbol>
+      <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></symbol>
+      <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.4-1.8l-.3-.9c-.4-1.1.4-2.3 1.6-2.3H17a4 4 0 0 0 4-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/></symbol>
+      <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9M3 9h18v1.5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0V9zM5 13v8h14v-8"/></symbol>
+      <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H9l2 2.5h7.5A2.5 2.5 0 0 1 21 9v8.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+      <symbol id="i-cloud-check" viewBox="0 0 24 24"><path d="M7 18a5 5 0 0 1-.9-9.9A6 6 0 0 1 17.6 9 4.5 4.5 0 0 1 17 18z"/><path d="M9.5 13.2l2 2 3.5-3.7"/></symbol>
+      <symbol id="i-truck" viewBox="0 0 24 24"><path d="M1 4h13v12H1zM14 8h4l4 4v4h-8"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="17.5" cy="18.5" r="2"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="bg-decor" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#" aria-label="Agapovs PV-Planer – nach oben">
+        <span class="brand-mark" aria-hidden="true">
+          <svg class="logo" viewBox="0 0 48 48">
+            <g class="logo-rays"><path d="M33 4.5v2M33 21.5v2M42.5 14h-2M25.5 14h-2M39.7 7.3l-1.4 1.4M27.7 19.3l-1.4 1.4M39.7 20.7l-1.4-1.4M27.7 8.7l-1.4-1.4"/></g>
+            <circle cx="33" cy="14" r="5"/>
+            <path d="M7 41l5-14h24l5 14z M9.5 34h29 M20 27l-1.7 14 M28 27l1.7 14"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name"><span class="bn-1">Agapovs</span> <span class="bn-2">PV&#8209;Planer</span></span>
+          <span class="brand-tag">Präzise geplant · sonnig kalkuliert</span>
+        </span>
+      </a>
+      <nav class="top-actions" aria-label="Aktionen">
+        <button class="btn btn-ghost" id="btnImport" title="Konfiguration importieren"><svg class="ico"><use href="#i-upload"/></svg><span>Import</span></button>
+        <button class="btn btn-ghost" id="btnExport" title="Konfiguration exportieren"><svg class="ico"><use href="#i-download"/></svg><span>Export</span></button>
+        <button class="btn btn-ghost hide-sm" id="btnPrint" title="Drucken / als PDF speichern"><svg class="ico"><use href="#i-print"/></svg><span>Drucken</span></button>
+        <button class="btn btn-primary" id="btnSettings" title="Einstellungen"><svg class="ico"><use href="#i-sliders"/></svg><span>Einstellungen</span></button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="print-head" aria-hidden="true"><span class="ph-brand">Agapovs PV&#8209;Planer</span><span data-out="printInfo"></span></div>
+    <section class="configbar" aria-label="Konfiguration">
+      <div class="cfg-main">
+        <span class="cfg-icon"><svg class="ico"><use href="#i-folder"/></svg></span>
+        <div class="cfg-text">
+          <span class="cfg-caption">Konfiguration</span>
+          <input class="cfg-name" id="projectName" data-bind="project.name" data-type="text" aria-label="Name der Konfiguration" spellcheck="false" autocomplete="off">
+        </div>
+      </div>
+      <div class="cfg-right">
+        <span class="cfg-saved" title="Änderungen werden automatisch in dieser Konfiguration gespeichert"><svg class="ico"><use href="#i-cloud-check"/></svg><span data-out="savedAt">Automatisch gespeichert</span></span>
+        <div class="cfg-switch">
+          <button type="button" class="btn btn-ghost btn-sm" id="cfgBtn" aria-haspopup="true" aria-expanded="false" aria-controls="cfgMenu"><svg class="ico"><use href="#i-folder"/></svg><span>Konfigurationen</span><span class="cfg-count" id="cfgCount">1</span><svg class="ico cfg-caret"><use href="#i-down"/></svg></button>
+          <div class="cfg-menu" id="cfgMenu" hidden></div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="cfg-dup" title="Aktuelle Konfiguration duplizieren"><svg class="ico"><use href="#i-copy"/></svg><span class="hide-sm">Duplizieren</span></button>
+        <button type="button" class="btn btn-soft btn-sm" data-action="cfg-new" title="Neue Konfiguration aus der Excel-Vorlage"><svg class="ico"><use href="#i-plus"/></svg><span>Neu</span></button>
+      </div>
+    </section>
+
+    <section class="kpis" aria-label="Kennzahlen">
+      <div class="kpi kpi-hero">
+        <svg class="kpi-sun" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="22"/><g><path d="M60 8v16M60 96v16M8 60h16M96 60h16M23.2 23.2l11.3 11.3M85.5 85.5l11.3 11.3M23.2 96.8l11.3-11.3M85.5 34.5l11.3-11.3"/></g></svg>
+        <span class="kpi-label">Gesamtkosten</span>
+        <span class="kpi-value" data-out="total">–</span>
+        <span class="kpi-sub" data-out="totalSub"></span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Anlagenleistung</span>
+        <span class="kpi-value" data-out="kwp">–</span>
+        <span class="kpi-sub" data-out="kwpSub"></span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Kosten pro kWp</span>
+        <span class="kpi-value" data-out="perKwp">–</span>
+        <span class="kpi-sub">inkl. Montage &amp; Anschluss</span>
+      </div>
+      <div class="kpi eco-only">
+        <span class="kpi-label">Jahresertrag (Prognose)</span>
+        <span class="kpi-value" data-out="yield">–</span>
+        <span class="kpi-sub" data-out="yieldSub"></span>
+      </div>
+      <div class="kpi eco-only">
+        <span class="kpi-label">Amortisation</span>
+        <span class="kpi-value" data-out="payback">–</span>
+        <span class="kpi-sub" data-out="paybackSub"></span>
+      </div>
+    </section>
+
+    <div class="layout">
+      <div class="col-main">
+        <section class="card" id="sec-modules">
+          <header class="card-head">
+            <div class="card-icon"><svg class="ico"><use href="#i-panel"/></svg></div>
+            <div class="card-titles"><h2>PV-Module</h2><p class="card-sub" data-out="modulesSub"></p></div>
+            <div class="card-sum" data-out="sumModules"></div>
+          </header>
+          <div class="card-body" id="modulesBody"></div>
+        </section>
+
+        <section class="card" id="sec-inverters">
+          <header class="card-head">
+            <div class="card-icon"><svg class="ico"><use href="#i-inverter"/></svg></div>
+            <div class="card-titles"><h2>Wechselrichter</h2><p class="card-sub" data-out="invSub"></p></div>
+            <div class="card-sum" data-out="sumInverters"></div>
+          </header>
+          <div class="card-body" id="invertersBody"></div>
+        </section>
+
+        <section class="card" id="sec-components">
+          <header class="card-head">
+            <div class="card-icon"><svg class="ico"><use href="#i-battery"/></svg></div>
+            <div class="card-titles"><h2>Speicher, Wallbox &amp; Zubehör</h2><p class="card-sub">Weitere Positionen im Eigeneinkauf</p></div>
+            <div class="card-sum" data-out="sumComponents"></div>
+          </header>
+          <div class="card-body" id="componentsBody"></div>
+        </section>
+
+        <section class="card" id="sec-mounting">
+          <header class="card-head">
+            <div class="card-icon"><svg class="ico"><use href="#i-wrench"/></svg></div>
+            <div class="card-titles"><h2>Montagesystem</h2><p class="card-sub" data-out="mountSub"></p></div>
+            <div class="card-sum" data-out="sumMounting"></div>
+          </header>
+          <div class="card-body" id="mountingBody"></div>
+        </section>
+
+        <section class="card" id="sec-labor">
+          <header class="card-head">
+            <div class="card-icon"><svg class="ico"><use href="#i-hardhat"/></svg></div>
+            <div class="card-titles"><h2>Arbeit &amp; externe Leistungen</h2><p class="card-sub">Gerüst, Montage, Elektroanschluss</p></div>
+            <div class="card-sum" data-out="sumExternal"></div>
+          </header>
+          <div class="card-body" id="laborBody"></div>
+        </section>
+
+        <section class="card eco-only" id="sec-economy">
+          <header class="card-head">
+            <div class="card-icon"><svg class="ico"><use href="#i-coins"/></svg></div>
+            <div class="card-titles"><h2>Wirtschaftlichkeit</h2><p class="card-sub">Vereinfachte Prognose – Annahmen frei anpassbar</p></div>
+          </header>
+          <div class="card-body" id="economyBody"></div>
+        </section>
+      </div>
+
+      <aside class="col-side" id="summary" aria-label="Kostenübersicht">
+        <section class="card summary-card">
+          <header class="card-head">
+            <div class="card-icon"><svg class="ico"><use href="#i-chart"/></svg></div>
+            <div class="card-titles"><h2>Kostenaufteilung</h2><p class="card-sub">Live – Anteile in % und €</p></div>
+          </header>
+          <div class="card-body">
+            <div class="segmented" role="tablist" id="summaryView">
+              <button role="tab" data-view="categories" class="is-active">Kategorien</button>
+              <button role="tab" data-view="positions">Positionen</button>
+            </div>
+            <div class="view-categories">
+              <div class="donut-host" id="donutHost"></div>
+              <ul class="legend" id="legend"></ul>
+            </div>
+            <div class="view-positions" hidden>
+              <ul class="poslist" id="posList"></ul>
+            </div>
+            <div class="split" id="split"></div>
+            <dl class="totals">
+              <div><dt>Summe Eigeneinkauf</dt><dd data-out="sumOwn"></dd></div>
+              <div><dt>Summe externe Arbeit/Artikel</dt><dd data-out="sumExt"></dd></div>
+              <div class="totals-grand"><dt>Summe gesamt</dt><dd data-out="total"></dd></div>
+            </dl>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="card bom-card" id="sec-bom">
+      <header class="card-head">
+        <div class="card-icon"><svg class="ico"><use href="#i-table"/></svg></div>
+        <div class="card-titles"><h2>Stückliste</h2><p class="card-sub">Alle Positionen wie in der Kalkulation</p></div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" id="btnCsv"><svg class="ico"><use href="#i-download"/></svg><span>CSV</span></button>
+        </div>
+      </header>
+      <div class="card-body table-wrap" id="bomBody"></div>
+    </section>
+
+    <footer class="foot">
+      <span><b>Agapovs PV&#8209;Planer</b> · Kalkulation für Konstantin Agapov · Basis: <em>MK_37_Module.xlsx</em> · Daten bleiben lokal im Browser</span>
+      <span data-out="cfgFoot"></span>
+    </footer>
+  </main>
+
+  <div class="mobile-bar" aria-hidden="false">
+    <div class="mb-info">
+      <span class="mb-label">Gesamt</span>
+      <span class="mb-value" data-out="total"></span>
+    </div>
+    <div class="mb-info">
+      <span class="mb-label">pro kWp</span>
+      <span class="mb-value mb-small" data-out="perKwp"></span>
+    </div>
+    <a class="btn btn-primary btn-sm" href="#summary" aria-label="Zur Kostenaufteilung"><svg class="ico"><use href="#i-chart"/></svg><span>Aufteilung</span></a>
+  </div>
+
+  <dialog class="modal" id="settingsDialog" aria-labelledby="settingsTitle">
+    <div class="modal-shell">
+      <header class="modal-head">
+        <h2 id="settingsTitle">Einstellungen</h2>
+        <button class="btn btn-icon btn-ghost" data-close aria-label="Schließen"><svg class="ico"><use href="#i-x"/></svg></button>
+      </header>
+      <nav class="modal-tabs" id="settingsTabs" role="tablist">
+        <button role="tab" data-tab="general"><svg class="ico"><use href="#i-sliders"/></svg><span>Allgemein</span></button>
+        <button role="tab" data-tab="themes"><svg class="ico"><use href="#i-palette"/></svg><span>Design</span></button>
+        <button role="tab" data-tab="inverters"><svg class="ico"><use href="#i-inverter"/></svg><span>Wechselrichter</span></button>
+        <button role="tab" data-tab="shops"><svg class="ico"><use href="#i-store"/></svg><span>Shops &amp; Preise</span></button>
+        <button role="tab" data-tab="data"><svg class="ico"><use href="#i-db"/></svg><span>Daten</span></button>
+      </nav>
+      <div class="modal-body" id="settingsBody"></div>
+    </div>
+  </dialog>
+
+  <dialog class="modal modal-sm" id="confirmDialog">
+    <div class="modal-shell">
+      <header class="modal-head"><h2 id="confirmTitle">Bestätigen</h2></header>
+      <div class="modal-body"><p id="confirmText"></p></div>
+      <footer class="modal-foot">
+        <button class="btn btn-ghost" value="cancel" id="confirmCancel">Abbrechen</button>
+        <button class="btn btn-danger" value="ok" id="confirmOk">OK</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+  <input type="file" id="imageFile" accept="image/*" hidden>
+
+  <script src="js/defaults.js?v=11"></script>
+  <script src="js/shop.js?v=11"></script>
+  <script src="js/charts.js?v=11"></script>
+  <script src="js/app.js?v=11"></script>
+</body>
+</html>
