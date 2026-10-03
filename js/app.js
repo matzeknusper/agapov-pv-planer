@@ -8,6 +8,7 @@
   const LEGACY_KEY = 'solarplaner.state.v1';
   const APP_ID = 'agapov-pv-planer';
   const APP_NAME = 'Agapovs PV-Planer';
+  const APP_VERSION = '16'; // muss zu version.json und den ?v= in index.html passen
   const CONFIG_KEYS = ['project', 'modules', 'inverters', 'components', 'mounting', 'externals', 'economy'];
   const D = window.SP_DEFAULTS;
   const Shop = window.SPShop;
@@ -2024,6 +2025,23 @@
   applyTheme();
   renderAll();
   persist();
+  // Neue Version auf dem Server? Dann einmal neu laden (Browser-Cache umgehen)
+  (function () {
+    if (!/^https?:/.test(location.protocol)) return;
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(v => {
+        if (!v || !v.version || String(v.version) === APP_VERSION) return;
+        let tried = null;
+        try { tried = sessionStorage.getItem('agapov.reloadFor'); } catch (e) { /* ignorieren */ }
+        if (tried === String(v.version)) return; // nur ein Versuch pro Version
+        try { sessionStorage.setItem('agapov.reloadFor', String(v.version)); } catch (e) { /* ignorieren */ }
+        persist();
+        location.reload();
+      })
+      .catch(() => {});
+  })();
+
   // Modulpreise beim Start live laden, wenn der Stand älter als 1 Stunde ist
   (function () {
     const t = Date.parse(state.moduleCatalog.fetchedAt || 0) || 0;
