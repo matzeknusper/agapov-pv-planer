@@ -113,6 +113,24 @@
       mounting: {
         mode: 'ratio',            // ratio | layout | manual
         refModules: 37,           // Referenz-Modulanzahl aus der Excel
+        // Aufsparrendämmung: Otto Lehmann Aufdachmodulhalter ersetzen an diesen Modulen die Dachhaken (1:1).
+        // Befestigung an der Konterlatte mit Unischraube 5,0 x 70 mm (separat, Karton 200 Stk., Art.-Nr. 8611001001000).
+        // Preise: dachbaustoffe.de, Stand 03.10.2026 (Einzelpreis inkl. MwSt., abhängig von Ziegelmodell/Farbe).
+        asd: {
+          modules: 0,
+          type: '7300',
+          holders: {
+            '7300': { label: 'Aufdachmodulhalter 7300', name: 'Otto Lehmann Aufdachmodulhalter 7300 mit Metalldachplatte, Stahl, anthrazit (inkl. Verstärkungsschiene 400 mm)', price: 32.58,
+                      url: 'https://www.dachbaustoffe.de/shop/artikel/aufdachmodulhalter-otto-lehmann-anthrazit-stahl-7300' },
+            '7302': { label: 'Aufdachmodulhalter HVS 7302', name: 'Otto Lehmann Aufdachmodulhalter HVS 7302 (horizontal/vertikal/seitlich) mit Metalldachplatte, anthrazit', price: 45.70,
+                      url: 'https://www.dachbaustoffe.de/shop/artikel/hvs-aufdachmodulhalter-anthrazit-otto-lehmann-7302' }
+          },
+          screw: { label: 'Unischrauben 5,0 × 70 mm', name: 'Lehmann Unischraube 5,0 × 70 mm für Konterlatte – Art.-Nr. 8611001001000 (Karton 200 Stk.)', price: 74.82, packSize: 200,
+                   url: 'https://www.dachbaustoffe.de/produkt/1773412-OTL-Holzschrauben-fSparrenschiene-5x70mm-fvz' },
+          minOrder: 119,           // dachbaustoffe.de: unter 119 € Warenwert Mindermengenzuschlag
+          minOrderFee: 23.80,
+          manualUrl: 'https://cdn.prod.website-files.com/68a44461c7a4c625016229e6/6902255d5e2ffc20dc0f5756_OL-Ntr-Eba-00039-23796181-DE.pdf'
+        },
         items: {
           hooks:      { label: 'Dachhaken', name: 'K2 SingleHook 3S – Schrägdach Dachziegel – 2003215', price: 7.17, ref: 90, manual: 90,
                         url: 'https://solarhandel24.de/products/k2-systems-singlehook-3s-schragdach-dachziegel?variant=49075013288248', img: IMG.hook },

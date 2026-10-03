@@ -30,6 +30,10 @@ Danach im Browser http://localhost:8765 öffnen.
   - *Proportional (Excel):* hochgerechnet aus den Excel-Mengen
   - *Belegungsplan:* berechnet aus Reihen, Maßen, Schienenlänge und Hakenabstand
   - *Manuell*
+- **Aufsparrendämmung:** Du wählst, wie viele Module auf Aufsparrendämmung sitzen. An diesen Modulen ersetzen Otto Lehmann Aufdachmodulhalter (7300 oder HVS 7302) die K2-Dachhaken im Verhältnis 1:1.
+  - Pro Halter kommt eine Unischraube 5,0 × 70 mm für die Konterlatte dazu (Karton à 200 Stück).
+  - Unter 119 € Warenwert berechnet dachbaustoffe.de einen Mindermengenzuschlag.
+  - Die Preise sind einstellbar, Stand 03.10.2026 bei dachbaustoffe.de.
 - **Montage:** `MAX(Mindestbetrag; €/kWp × RUNDEN(Module × Wp-Basis)/1000)`, wie in der Excel. €/kWp, Mindestbetrag und Wp-Basis sind einstellbar.
 - **Live-Kostenaufteilung** (Donut und Positionsliste), Stückliste, CSV-Export und Druck/PDF.
 - **Themes:** System, Hell, Dunkel, Material, Glass, Frost, iOS, Solar.

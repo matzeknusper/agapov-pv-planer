@@ -485,12 +485,29 @@
       const ref = num(MT.refModules);
       MOUNT_KEYS.forEach(k => { mQty[k] = ref > 0 ? Math.ceil(n * num(MT.items[k].ref) / ref - 1e-9) : 0; });
     }
+    // Aufsparrendämmung: Anteil der Hakenpositionen geht an Lehmann-Aufdachmodulhalter
+    const A = MT.asd;
+    const asdN = clamp(Math.round(num(A.modules)), 0, n);
+    const hookPositions = mQty.hooks;
+    const asdHolders = n > 0 && asdN > 0 ? Math.ceil(hookPositions * asdN / n - 1e-9) : 0;
+    mQty = Object.assign({}, mQty, { hooks: hookPositions - asdHolders });
     const mnt = MOUNT_KEYS.map(k => {
       const it = MT.items[k];
       const total = mQty[k] * num(it.price);
-      if (total !== 0) add({ group: 'own', cat: 'mounting', label: it.label, name: it.name, qty: mQty[k], unitLabel: 'Stk.', unit: num(it.price), total, url: it.url });
+      if (total !== 0) add({ group: 'own', cat: 'mounting', label: it.label + (k === 'hooks' && asdN > 0 ? ' (normale Module)' : ''), name: it.name, qty: mQty[k], unitLabel: 'Stk.', unit: num(it.price), total, url: it.url });
       return { key: k, qty: mQty[k], total };
     });
+    const holder = A.holders[A.type] || A.holders['7300'];
+    const holderTotal = asdHolders * num(holder.price);
+    const cartons = asdHolders > 0 ? Math.ceil(asdHolders / Math.max(1, num(A.screw.packSize))) : 0;
+    const screwTotal = cartons * num(A.screw.price);
+    const vendorSum = holderTotal + screwTotal;
+    const asdFee = vendorSum > 0 && vendorSum < num(A.minOrder) ? num(A.minOrderFee) : 0;
+    if (holderTotal) add({ group: 'own', cat: 'mounting', label: 'Aufdachmodulhalter (Aufsparrendämmung)', name: holder.name, qty: asdHolders, unitLabel: 'Stk.', unit: num(holder.price), total: holderTotal, url: holder.url });
+    if (screwTotal) add({ group: 'own', cat: 'mounting', label: 'Unischrauben 5×70 (Konterlatte)', name: A.screw.name, qty: cartons, unitLabel: cartons === 1 ? 'Karton' : 'Kartons', unit: num(A.screw.price), total: screwTotal, url: A.screw.url });
+    if (asdFee) add({ group: 'own', cat: 'mounting', label: 'Mindermengenzuschlag', name: 'dachbaustoffe.de – Warenwert unter ' + eur(num(A.minOrder)), qty: 1, unitLabel: 'pauschal', unit: asdFee, total: asdFee });
+    mnt.push({ key: 'asdHolders', qty: asdHolders, total: holderTotal }, { key: 'asdScrews', qty: cartons, total: screwTotal }, { key: 'asdFee', qty: asdFee ? 1 : 0, total: asdFee });
+    const asd = { n: asdN, normal: n - asdN, holders: asdHolders, hookPositions, cartons, screws: asdHolders, fee: asdFee, holder };
     const mntCost = mnt.reduce((a, x) => a + x.total, 0);
 
     // 5 – Externe Arbeit
@@ -527,7 +544,7 @@
 
     return {
       n, wp, kwp, spec, purchase, delivered, weight, shipInfo, modCost, ship, inv, invCost, acKw, invCount, dcac: acKw > 0 ? kwp / acKw : null,
-      cmp, cmpCost, mnt, mntCost, layout, extRows, montage,
+      cmp, cmpCost, mnt, mntCost, layout, asd, extRows, montage,
       positions, own, ext: extSum, total, cats,
       eco: { prod, self, feed, savings, payback, bal20: savings * 20 - total }
     };
@@ -898,6 +915,50 @@
         '<div class="layout-preview"><div class="lp-head"><span class="field-label">Belegungsvorschau</span><span class="muted small" data-out="layoutInfo"></span></div><div id="layoutPreview"></div><div class="status-note" data-out-html="layoutWarn"></div></div>';
     }
     const isRatio = MT.mode === 'ratio', isManual = MT.mode === 'manual';
+    const A = MT.asd, holder = A.holders[A.type] || A.holders['7300'];
+    const asdBlock =
+      '<div class="asd-block">' +
+        '<div class="asd-head">' +
+          '<span class="asd-icon">' + icon('layers') + '</span>' +
+          '<div class="asd-titles"><strong>Aufsparrendämmung</strong><span class="muted small">Otto Lehmann Aufdachmodulhalter statt Dachhaken – wählbar pro Modulanzahl</span></div>' +
+        '</div>' +
+        '<div class="asd-grid">' +
+          '<div class="field asd-count"><span class="field-label" id="asdLabel">Module mit Aufsparrendämmung</span>' +
+            '<div class="asd-count-row">' +
+              '<span class="input-wrap stepper"><input class="input" type="text" inputmode="numeric" data-bind="mounting.asd.modules" data-type="int" data-min="0" data-max="' + state.settings.sliderMax + '" data-arrows aria-labelledby="asdLabel" value="' + num(A.modules) + '" autocomplete="off">' +
+              '<span class="step-arrows"><button type="button" data-step="1" tabindex="-1" aria-label="erhöhen">' + icon('up') + '</button><button type="button" data-step="-1" tabindex="-1" aria-label="verringern">' + icon('down') + '</button></span></span>' +
+              '<input type="range" class="range" id="asdRange" min="0" max="' + state.modules.count + '" step="1" value="' + Math.min(num(A.modules), state.modules.count) + '" data-bind="mounting.asd.modules" data-type="int" aria-labelledby="asdLabel">' +
+            '</div>' +
+            '<div class="asd-quick"><button type="button" class="chip" data-action="asd-set" data-value="0">Keine</button><button type="button" class="chip" data-action="asd-set" data-value="half">Hälfte</button><button type="button" class="chip" data-action="asd-set" data-value="all">Alle</button></div>' +
+          '</div>' +
+          selectField({ label: 'Halter-Typ', bind: 'mounting.asd.type', rerender: 'mounting', options: [['7300', 'Lehmann 7300 (Standard)'], ['7302', 'Lehmann HVS 7302 (horiz./vert./seitl.)']] }) +
+          field({ label: 'Preis je Halter', bind: 'mounting.asd.holders.' + A.type + '.price', suffix: '€', arrows: true, step: 0.5, min: 0, hint: 'Je nach Ziegelmodell/Farbe ca. 30–46 €' }) +
+        '</div>' +
+        '<div class="asd-split" data-out-html="asdSplit"></div>' +
+        '<div class="status-note" data-out-html="asdWarn"></div>' +
+        '<div class="chips">' +
+          '<a class="chip" href="' + esc(holder.url) + '" target="_blank" rel="noopener noreferrer">' + icon('ext') + '<span>Halter bei dachbaustoffe.de</span></a>' +
+          '<a class="chip" href="' + esc(A.screw.url) + '" target="_blank" rel="noopener noreferrer">' + icon('ext') + '<span>Unischrauben 5×70</span></a>' +
+          '<a class="chip" href="' + esc(A.manualUrl) + '" target="_blank" rel="noopener noreferrer">' + icon('info') + '<span>Einbauanleitung (PDF)</span></a>' +
+          '<a class="chip" href="https://www.ottolehmann.com/solar" target="_blank" rel="noopener noreferrer">' + icon('ext') + '<span>Otto Lehmann Solar</span></a>' +
+        '</div>' +
+        '<details class="more"><summary>' + icon('info') + 'Hinweise zur Montage</summary><ul class="asd-notes">' +
+          '<li>Der Halter ersetzt einen Dachziegel – die <b>Metalldachplatte muss zum Ziegelmodell passen</b> (über 90 Modelle, Preis je nach Modell/Farbe).</li>' +
+          '<li>Bei Aufsparrendämmung wird die Verstärkungsschiene an der <b>Konterlatte (min. 4/6 cm)</b> verschraubt – max. 150 mm Abstand zur Konterlattenmitte.</li>' +
+          '<li>Dafür je Halter eine <b>Unischraube 5,0 × 70 mm</b> (Art.-Nr. 8611001001000) – nicht im Lieferumfang, Karton à 200 Stk.</li>' +
+          '<li>Anzahl der Halter nach Wind-/Schneelast prüfen (Lehmann Modulrechner). Die Planung setzt 1 Halter je Hakenposition an.</li>' +
+          '<li>Lieferzeit bei dachbaustoffe.de laut Shop 6–8 Wochen; unter ' + esc(eur(num(A.minOrder))) + ' Warenwert ' + esc(eur(num(A.minOrderFee))) + ' Mindermengenzuschlag.</li>' +
+        '</ul></details>' +
+      '</div>';
+    const asdRow = (key, label, name, priceField, sub) => '<tr data-asd-row="' + key + '" class="asd-row"' + ((key === 'asdFee' ? true : !num(A.modules)) ? ' hidden' : '') + '>' +
+      '<td class="mt-art">' + thumb('', key === 'asdFee' ? 'coins' : 'layers', 'thumb-sm') + '<div><strong class="asd-label">' + esc(label) + '</strong><span class="inline-muted asd-name">' + esc(name) + '</span></div></td>' +
+      '<td class="mt-qty" data-label="Menge">' + (key === 'asdFee' ? '<strong class="qty-out">pauschal</strong>' : '<strong class="qty-out" data-out="mnt.' + key + '.qty"></strong><span class="qty-sub" data-out="mnt.' + key + '.sub"></span>') + '</td>' +
+      '<td class="mt-price" data-label="Einzelpreis">' + priceField + '</td>' +
+      '<td class="mt-sum" data-label="Summe"><strong data-out="mnt.' + key + '.total"></strong></td></tr>';
+    const asdRows =
+      asdRow('asdHolders', holder.label + ' (Aufsparrendämmung)', holder.name, field({ bind: 'mounting.asd.holders.' + A.type + '.price', suffix: '€', min: 0, aria: 'Preis je Halter', cls: 'field-compact' })) +
+      asdRow('asdScrews', A.screw.label + ' (Karton)', A.screw.name, field({ bind: 'mounting.asd.screw.price', suffix: '€', min: 0, aria: 'Preis je Karton', cls: 'field-compact' })) +
+      asdRow('asdFee', 'Mindermengenzuschlag', 'dachbaustoffe.de – Warenwert unter ' + eur(num(A.minOrder)), '<span class="muted">' + esc(eur(num(A.minOrderFee))) + '</span>');
     const rows = MOUNT_KEYS.map(k => {
       const it = MT.items[k], p = 'mounting.items.' + k;
       return '<tr>' +
@@ -912,7 +973,8 @@
       segmented('mounting.mode', [['ratio', 'Proportional (Excel)'], ['layout', 'Belegungsplan'], ['manual', 'Manuell']], 'mounting', 'segmented-wide') +
       '<p class="hint">' + icon('info') + desc + '</p>' + settings +
       (isManual ? '' : '<div class="mnt-basis">' + icon('panel') + '<span data-out-html="mountBasis"></span></div>') +
-      '<div class="table-wrap"><table class="mt mt-' + MT.mode + '"><thead><tr><th>Artikel</th><th>Menge</th><th>Einzelpreis</th><th class="num">Summe</th></tr></thead><tbody>' + rows + '</tbody>' +
+      asdBlock +
+      '<div class="table-wrap"><table class="mt mt-' + MT.mode + '"><thead><tr><th>Artikel</th><th>Menge</th><th>Einzelpreis</th><th class="num">Summe</th></tr></thead><tbody>' + rows + asdRows + '</tbody>' +
       '<tfoot><tr><td colspan="3">Summe Montagesystem</td><td class="num"><strong data-out="sumMounting"></strong></td></tr></tfoot></table></div>' +
       (isRatio ? '<details class="more"><summary>' + icon('edit') + 'Referenzmengen anpassen (Basis der Hochrechnung)</summary>' +
         '<p class="muted small" style="margin:0 0 12px">Diese Mengen gelten für die Referenz-Modulanzahl und werden auf die aktuelle Modulanzahl hochgerechnet. Standard: Werte aus der Excel für 37 Module.</p>' +
@@ -1069,8 +1131,28 @@
     r.mnt.forEach(x => {
       out['mnt.' + x.key + '.qty'] = NF.n0.format(x.qty) + ' Stk.';
       out['mnt.' + x.key + '.total'] = eur(x.total);
-      out['mnt.' + x.key + '.sub'] = MT.mode === 'ratio' ? NF.nMax2.format(num(MT.items[x.key].ref)) + ' bei ' + num(MT.refModules) + ' Mod.' : '';
+      out['mnt.' + x.key + '.sub'] = MT.mode === 'ratio' && MT.items[x.key] ? NF.nMax2.format(num(MT.items[x.key].ref)) + ' bei ' + num(MT.refModules) + ' Mod.' : '';
     });
+    const ad = r.asd;
+    out['mnt.asdHolders.qty'] = NF.n0.format(ad.holders) + ' Stk.';
+    out['mnt.asdHolders.total'] = eur(r.mnt.find(x => x.key === 'asdHolders').total);
+    out['mnt.asdHolders.sub'] = 'für ' + ad.n + ' Module';
+    out['mnt.asdScrews.qty'] = ad.cartons + (ad.cartons === 1 ? ' Karton' : ' Kartons');
+    out['mnt.asdScrews.total'] = eur(r.mnt.find(x => x.key === 'asdScrews').total);
+    out['mnt.asdScrews.sub'] = ad.screws + ' benötigt';
+    out['mnt.asdFee.total'] = eur(ad.fee);
+    if (ad.n > 0) out['mnt.hooks.sub'] = 'für ' + ad.normal + ' Module';
+    html.asdSplit = ad.n > 0
+      ? '<span class="asd-chip asd-chip-a">' + icon('layers') + '<b>' + ad.n + '</b> Module Aufsparrendämmung → <b>' + ad.holders + '</b> Lehmann-Halter</span>' +
+        '<span class="asd-chip">' + icon('wrench') + '<b>' + ad.normal + '</b> Module normal → <b>' + (ad.hookPositions - ad.holders) + '</b> K2-Dachhaken</span>'
+      : '<span class="muted">Keine Module auf Aufsparrendämmung – alle ' + r.n + ' Module mit K2-Dachhaken.</span>';
+    $$('#mountingBody [data-asd-row]').forEach(tr => {
+      const k = tr.dataset.asdRow;
+      tr.hidden = k === 'asdFee' ? !ad.fee : ad.n === 0;
+    });
+    const asdRange = $('#asdRange');
+    if (asdRange) { asdRange.max = String(r.n); if (document.activeElement !== asdRange) asdRange.value = String(ad.n); paintRange(asdRange); }
+    html.asdWarn = num(MT.asd.modules) > r.n ? statusNote('warn', 'Es sind mehr Module mit Aufsparrendämmung eingetragen (' + num(MT.asd.modules) + ') als geplant – berechnet werden ' + r.n + '.') : '';
     const placed = r.layout ? r.layout.placed : r.n;
     out.mountSub = { ratio: 'Wächst mit · ' + r.n + ' Module', layout: 'Belegungsplan · ' + placed + ' Module', manual: 'Manuelle Mengen (fest)' }[MT.mode];
     html.mountBasis = MT.mode === 'layout'
@@ -1536,6 +1618,13 @@
       case 'ext-remove': {
         const it = state.externals[idx];
         if (await confirmBox('Position entfernen?', '„' + (it.label || 'Position') + '“ wird aus der Planung entfernt.', 'Entfernen')) { state.externals.splice(idx, 1); renderLabor(); update(); }
+        break;
+      }
+      case 'asd-set': {
+        const n = state.modules.count, v = a.dataset.value;
+        state.mounting.asd.modules = v === 'all' ? n : v === 'half' ? Math.round(n / 2) : 0;
+        syncBound('mounting.asd.modules', null);
+        update();
         break;
       }
       case 'mnt-scale': {
