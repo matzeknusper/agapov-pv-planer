@@ -870,13 +870,14 @@
   function renderMounting() {
     const MT = state.mounting, L = MT.layout;
     const desc = {
-      ratio: 'Mengen werden proportional zur Modulanzahl hochgerechnet – Basis sind die Mengen aus der Excel (z. B. 90 Dachhaken bei 37 Modulen). Es wird immer aufgerundet.',
+      ratio: 'Die Mengen wachsen automatisch mit der Modulanzahl mit – Basis sind die Mengen aus der Excel (z. B. 90 Dachhaken bei 37 Modulen). Es wird immer aufgerundet.',
       layout: 'Mengen werden aus dem Belegungsplan berechnet: Reihen, Modulmaße, Schienenlänge und Hakenabstand. Mittelklemmen = Schienen × (Module − 1), Endklemmen = 2 × Schienen je Reihe.',
-      manual: 'Feste Mengen – unabhängig von der Modulanzahl.'
+      manual: 'Feste Mengen – sie ändern sich NICHT, wenn die Modulanzahl angepasst wird.'
     }[MT.mode];
     let settings = '';
-    if (MT.mode === 'ratio') {
-      settings = '<div class="grid grid-3">' + field({ label: 'Referenz-Modulanzahl', bind: 'mounting.refModules', type: 'int', suffix: 'Module', arrows: true, min: 1, hint: 'Die Referenzmengen in der Tabelle gelten für diese Anzahl.' }) + '</div>';
+    if (MT.mode === 'manual') {
+      settings = '<div class="mnt-banner">' + icon('alert') + '<span>Manuelle Mengen folgen der Modulanzahl nicht automatisch.</span>' +
+        '<button type="button" class="btn btn-soft btn-sm" data-action="mnt-scale">' + icon('refresh') + '<span>Auf aktuelle Modulanzahl hochrechnen</span></button></div>';
     } else if (MT.mode === 'layout') {
       settings =
         '<div class="layout-grid">' +
@@ -902,8 +903,7 @@
       return '<tr>' +
         '<td class="mt-art">' + thumb(it.img, 'wrench', 'thumb-sm') + '<div><input class="inline-edit inline-strong" data-bind="' + p + '.label" data-type="text" value="' + esc(it.label) + '" aria-label="Artikel" spellcheck="false">' +
           '<input class="inline-edit inline-muted" data-bind="' + p + '.name" data-type="text" value="' + esc(it.name) + '" aria-label="Produkt" spellcheck="false"><div class="chips">' + linkBtns(p, it.url, '') + '</div></div></td>' +
-        (isRatio ? '<td class="mt-ref" data-label="Ref.-Menge">' + field({ bind: p + '.ref', type: 'num', aria: 'Referenzmenge ' + it.label, cls: 'field-compact', suffix: 'Stk.' }) + '</td>' : '') +
-        '<td class="mt-qty" data-label="Menge">' + (isManual ? field({ bind: p + '.manual', type: 'int', arrows: true, min: 0, aria: 'Menge ' + it.label, cls: 'field-compact' }) : '<strong class="qty-out" data-out="mnt.' + k + '.qty"></strong>') + '</td>' +
+        '<td class="mt-qty" data-label="Menge">' + (isManual ? field({ bind: p + '.manual', type: 'int', arrows: true, min: 0, aria: 'Menge ' + it.label, cls: 'field-compact' }) : '<strong class="qty-out" data-out="mnt.' + k + '.qty"></strong><span class="qty-sub" data-out="mnt.' + k + '.sub"></span>') + '</td>' +
         '<td class="mt-price" data-label="Einzelpreis">' + field({ bind: p + '.price', suffix: '€', min: 0, aria: 'Einzelpreis ' + it.label, cls: 'field-compact' }) + '</td>' +
         '<td class="mt-sum" data-label="Summe"><strong data-out="mnt.' + k + '.total"></strong></td>' +
       '</tr>';
@@ -911,8 +911,14 @@
     $('#mountingBody').innerHTML =
       segmented('mounting.mode', [['ratio', 'Proportional (Excel)'], ['layout', 'Belegungsplan'], ['manual', 'Manuell']], 'mounting', 'segmented-wide') +
       '<p class="hint">' + icon('info') + desc + '</p>' + settings +
-      '<div class="table-wrap"><table class="mt mt-' + MT.mode + '"><thead><tr><th>Artikel</th>' + (isRatio ? '<th>Ref.-Menge</th>' : '') + '<th>Menge</th><th>Einzelpreis</th><th class="num">Summe</th></tr></thead><tbody>' + rows + '</tbody>' +
-      '<tfoot><tr><td colspan="' + (isRatio ? 4 : 3) + '">Summe Montagesystem</td><td class="num"><strong data-out="sumMounting"></strong></td></tr></tfoot></table></div>';
+      (isManual ? '' : '<div class="mnt-basis">' + icon('panel') + '<span data-out-html="mountBasis"></span></div>') +
+      '<div class="table-wrap"><table class="mt mt-' + MT.mode + '"><thead><tr><th>Artikel</th><th>Menge</th><th>Einzelpreis</th><th class="num">Summe</th></tr></thead><tbody>' + rows + '</tbody>' +
+      '<tfoot><tr><td colspan="3">Summe Montagesystem</td><td class="num"><strong data-out="sumMounting"></strong></td></tr></tfoot></table></div>' +
+      (isRatio ? '<details class="more"><summary>' + icon('edit') + 'Referenzmengen anpassen (Basis der Hochrechnung)</summary>' +
+        '<p class="muted small" style="margin:0 0 12px">Diese Mengen gelten für die Referenz-Modulanzahl und werden auf die aktuelle Modulanzahl hochgerechnet. Standard: Werte aus der Excel für 37 Module.</p>' +
+        '<div class="grid grid-3">' + field({ label: 'Referenz-Modulanzahl', bind: 'mounting.refModules', type: 'int', suffix: 'Module', arrows: true, min: 1 }) +
+        MOUNT_KEYS.map(k => field({ label: MT.items[k].label, bind: 'mounting.items.' + k + '.ref', type: 'num', suffix: 'Stk.', arrows: true, min: 0 })).join('') +
+        '</div></details>' : '');
   }
 
   function renderLabor() {
@@ -1059,12 +1065,25 @@
     r.cmp.forEach((x, i) => { out['cmp.' + i + '.total'] = eur(x.total); });
 
     out.sumMounting = eur(r.mntCost);
-    r.mnt.forEach(x => { out['mnt.' + x.key + '.qty'] = NF.n0.format(x.qty) + ' Stk.'; out['mnt.' + x.key + '.total'] = eur(x.total); });
-    out.mountSub = { ratio: 'Proportional zur Modulanzahl', layout: 'Berechnet aus Belegungsplan', manual: 'Manuelle Mengen' }[s.mounting.mode];
+    const MT = s.mounting;
+    r.mnt.forEach(x => {
+      out['mnt.' + x.key + '.qty'] = NF.n0.format(x.qty) + ' Stk.';
+      out['mnt.' + x.key + '.total'] = eur(x.total);
+      out['mnt.' + x.key + '.sub'] = MT.mode === 'ratio' ? NF.nMax2.format(num(MT.items[x.key].ref)) + ' bei ' + num(MT.refModules) + ' Mod.' : '';
+    });
+    const placed = r.layout ? r.layout.placed : r.n;
+    out.mountSub = { ratio: 'Wächst mit · ' + r.n + ' Module', layout: 'Belegungsplan · ' + placed + ' Module', manual: 'Manuelle Mengen (fest)' }[MT.mode];
+    html.mountBasis = MT.mode === 'layout'
+      ? 'Berechnet für <strong>' + placed + ' Module</strong> in ' + (r.layout ? r.layout.rows.length : 0) + ' Reihen' + (placed !== r.n ? ' <span class="pill pill-warn">geplant: ' + r.n + '</span>' : '')
+      : 'Hochgerechnet für <strong>' + r.n + ' Module</strong> <span class="muted">(Faktor ' + NF.n2.format(num(MT.refModules) > 0 ? r.n / num(MT.refModules) : 0) + ' × Excel-Mengen)</span>';
+    $$('#mountingBody .qty-out').forEach(el => {
+      const k = el.dataset.out;
+      if (k in out && el.textContent && el.textContent !== out[k]) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+    });
     if (r.layout) {
       const lo = r.layout;
       out.layoutInfo = lo.rows.length + (lo.rows.length === 1 ? ' Reihe' : ' Reihen') + ' · max. ' + NF.n2.format(Math.max(0, ...lo.rowLengths, 0)) + ' m · ' + NF.n1.format(lo.lineMeters) + ' m Schiene';
-      html.layoutWarn = lo.placed !== r.n ? statusNote('warn', 'Die Belegung enthält ' + lo.placed + ' Module, geplant sind ' + r.n + '. Montagesystem wird für die Belegung berechnet.') : '';
+      html.layoutWarn = lo.placed !== r.n ? statusNote('warn', 'Die individuelle Belegung enthält ' + lo.placed + ' Module, geplant sind ' + r.n + '. Das Montagesystem wird für die Belegung berechnet. <button type="button" class="btn btn-soft btn-sm" data-action="distribute-rows">Belegung auf ' + r.n + ' Module anpassen</button>') : '';
       const lp = $('#layoutPreview');
       if (lp) lp.innerHTML = Charts.layoutPreview(lo);
     }
@@ -1517,6 +1536,12 @@
       case 'ext-remove': {
         const it = state.externals[idx];
         if (await confirmBox('Position entfernen?', '„' + (it.label || 'Position') + '“ wird aus der Planung entfernt.', 'Entfernen')) { state.externals.splice(idx, 1); renderLabor(); update(); }
+        break;
+      }
+      case 'mnt-scale': {
+        const MT = state.mounting, n = state.modules.count, ref = num(MT.refModules);
+        MOUNT_KEYS.forEach(k => { MT.items[k].manual = ref > 0 ? Math.ceil(n * num(MT.items[k].ref) / ref - 1e-9) : 0; });
+        renderMounting(); update(); toast('Mengen auf ' + n + ' Module hochgerechnet.', 'ok');
         break;
       }
       case 'distribute-rows': {
