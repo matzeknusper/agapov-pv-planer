@@ -125,12 +125,15 @@
     const d = D.create();
     // Konfigurationen von vor dem Shop-Katalog: Versand auf 199 € je Palette umstellen
     const legacyModules = s && s.modules && !s.modules.source;
+    const legacyBuyMode = !(s && s.modules && s.modules.buyModeV);
     s = deepMerge(d, s || {});
     if (legacyModules) s.modules.shipping = clone(d.modules.shipping);
     if (s.modules.shipping.mode === 'perPallet' && num(s.modules.shipping.amount) === 199) s.modules.shipping.mode = 'shop24';
     if (!s.settings.shipTable || !Array.isArray(s.settings.shipTable.freight)) s.settings.shipTable = d.settings.shipTable;
     if (!s.moduleCatalog || !Array.isArray(s.moduleCatalog.items) || !s.moduleCatalog.items.length) s.moduleCatalog = d.moduleCatalog;
-    if (!['single', 'pallet', 'mixed'].includes(s.modules.buyMode)) s.modules.buyMode = 'pallet';
+    if (!['single', 'pallet', 'mixed'].includes(s.modules.buyMode)) s.modules.buyMode = 'mixed';
+    // frühere Voreinstellung „Palette“ → „Optimal“ (sonst kostet z. B. das 38. Modul eine ganze zweite Palette)
+    if (legacyBuyMode) { if (s.modules.buyMode === 'pallet') s.modules.buyMode = 'mixed'; s.modules.buyModeV = 2; }
     if (!['shop', 'manual'].includes(s.modules.source)) s.modules.source = 'shop';
     // Listen auffüllen, damit importierte/alte Daten vollständig sind
     s.inverters = (Array.isArray(s.inverters) ? s.inverters : []).map(x => Object.assign({ id: uid(), libId: '', qty: 1 }, x));

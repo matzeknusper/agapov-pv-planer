@@ -1131,6 +1131,13 @@ details.more[open] > summary { margin-bottom: 12px; color: var(--accent-text); }
   .cfg-saved span { display: none; }
 }
 
+/* iOS Safari zoomt beim Antippen von Feldern mit < 16 px Schrift automatisch hinein – verhindern */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea, .input, .inline-edit, .cfg-name, .count-input { font-size: max(16px, 1em) !important; }
+  .inline-muted, .field-compact .input, .select-lg select { font-size: 16px !important; }
+  .count-input { font-size: 28px !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .logo-rays, .kpi-sun g, .brand-mark::after { animation: none !important; }
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

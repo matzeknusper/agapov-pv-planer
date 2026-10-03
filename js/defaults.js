@@ -85,7 +85,8 @@
         count: 37,
         source: 'shop',          // shop = Modul aus dem solarhandel24-Katalog, manual = eigene Angaben
         productId: 'aiko-solar-465w-glas-glas-full-black-modul-aiko-a-mah54db-neostar-2s-staffelpreis',
-        buyMode: 'pallet',       // single = Einzeln (Staffelpreis), pallet = ganze Paletten, mixed = günstigste Kombination
+        buyMode: 'mixed',        // single = Einzeln (Staffelpreis), pallet = ganze Paletten, mixed = günstigste Kombination
+        buyModeV: 2,
         name: 'AIKO-A465-MA54DB',
         title: 'Aiko Solar 465W Modul AIKO-A-MAH54Db Neostar 2S+',
         wp: 465,
