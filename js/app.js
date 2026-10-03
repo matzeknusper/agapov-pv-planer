@@ -8,7 +8,7 @@
   const LEGACY_KEY = 'solarplaner.state.v1';
   const APP_ID = 'agapov-pv-planer';
   const APP_NAME = 'Agapovs PV-Planer';
-  const APP_VERSION = '17'; // muss zu version.json und den ?v= in index.html passen
+  const APP_VERSION = '18'; // muss zu version.json und den ?v= in index.html passen
   const CONFIG_KEYS = ['project', 'modules', 'inverters', 'components', 'mounting', 'externals', 'economy'];
   const D = window.SP_DEFAULTS;
   const Shop = window.SPShop;
@@ -94,6 +94,25 @@
   const CAT = Object.fromEntries(CATS.map((c, i) => [c.key, Object.assign({ color: 'var(--c' + (i + 1) + ')' }, c)]));
   const MOUNT_KEYS = ['hooks', 'rails', 'midClamps', 'endClamps', 'connectors'];
 
+  // Ertragsfaktoren (Richtwerte Deutschland) relativ zu Süd / 30° = 100 % – Neigung wird linear interpoliert
+  const DIRS = [['S', 'Süd', 180], ['SW', 'Südwest', 225], ['W', 'West', 270], ['NW', 'Nordwest', 315], ['N', 'Nord', 0], ['NO', 'Nordost', 45], ['O', 'Ost', 90], ['SO', 'Südost', 135]];
+  const TILTS = [0, 15, 30, 45, 60, 90];
+  const YIELD_F = {
+    S:  [0.87, 0.95, 1.00, 0.99, 0.93, 0.70],
+    SO: [0.87, 0.93, 0.96, 0.93, 0.86, 0.65], SW: [0.87, 0.93, 0.96, 0.93, 0.86, 0.65],
+    O:  [0.87, 0.89, 0.85, 0.80, 0.73, 0.55], W:  [0.87, 0.89, 0.85, 0.80, 0.73, 0.55],
+    NO: [0.87, 0.82, 0.72, 0.62, 0.52, 0.35], NW: [0.87, 0.82, 0.72, 0.62, 0.52, 0.35],
+    N:  [0.87, 0.78, 0.62, 0.50, 0.40, 0.25]
+  };
+  function yieldFactor(dir, tilt) {
+    const row = YIELD_F[dir] || YIELD_F.S;
+    const t = clamp(num(tilt), 0, 90);
+    for (let i = 0; i < TILTS.length - 1; i++) {
+      if (t <= TILTS[i + 1]) { const k = (t - TILTS[i]) / (TILTS[i + 1] - TILTS[i]); return row[i] + (row[i + 1] - row[i]) * k; }
+    }
+    return row[row.length - 1];
+  }
+
   const THEMES = [
     { key: 'auto', name: 'System', desc: 'Folgt Hell/Dunkel des Geräts', mode: null },
     { key: 'light', name: 'Hell', desc: 'Klar und neutral', mode: 'light' },
@@ -136,6 +155,8 @@
     if (!['single', 'pallet', 'mixed'].includes(s.modules.buyMode)) s.modules.buyMode = 'mixed';
     // frühere Voreinstellung „Palette“ → „Optimal“ (sonst kostet z. B. das 38. Modul eine ganze zweite Palette)
     // ältere Konfigurationen: Standard-40 % → 6.930 kWh (gleicher Wert bei 37 × 465 Wp), sonst bei % bleiben
+    s.economy.areas = (Array.isArray(s.economy.areas) && s.economy.areas.length ? s.economy.areas : clone(d.economy.areas)).map(x => Object.assign({ id: uid(), name: 'Dachfläche', modules: 0, dir: 'S', tilt: 30 }, x));
+    if (!['avg', 'areas'].includes(s.economy.yieldMode)) s.economy.yieldMode = 'avg';
     if (legacyEco) s.economy.selfMode = num(s.economy.selfPct) === 40 ? 'kwh' : 'pct';
     if (legacyBuyMode) { if (s.modules.buyMode === 'pallet') s.modules.buyMode = 'mixed'; s.modules.buyModeV = 2; }
     if (!['shop', 'manual'].includes(s.modules.source)) s.modules.source = 'shop';
@@ -543,7 +564,25 @@
 
     // Wirtschaftlichkeit
     const E = s.economy;
-    const prod = kwp * num(E.specificYield);
+    let prod, areaRes = null, assigned = 0;
+    if (E.yieldMode === 'areas') {
+      const base = num(E.baseYield);
+      if (E.areas.length === 1) E.areas[0].modules = n; // eine Fläche = alle Module
+      assigned = E.areas.reduce((a, x) => a + Math.max(0, Math.round(num(x.modules))), 0);
+      const scale = assigned > n && assigned > 0 ? n / assigned : 1;
+      let yAssigned = 0, kwpAssigned = 0;
+      areaRes = E.areas.map(x => {
+        const m = Math.max(0, Math.round(num(x.modules))) * scale;
+        const k = m * wp / 1000, f = yieldFactor(x.dir, x.tilt), y = k * base * f;
+        yAssigned += y; kwpAssigned += k;
+        return { modules: m, kwp: k, f, y, spec: base * f };
+      });
+      const unassigned = Math.max(0, n - assigned * scale);
+      const fAvg = kwpAssigned > 0 ? yAssigned / (kwpAssigned * base) : 1;
+      prod = yAssigned + unassigned * wp / 1000 * base * fAvg;
+    } else {
+      prod = kwp * num(E.specificYield);
+    }
     const selfWanted = E.selfMode === 'kwh' ? Math.max(0, num(E.selfKwh)) : prod * clamp(num(E.selfPct), 0, 100) / 100;
     const self = Math.min(selfWanted, prod);
     const feed = prod - self;
@@ -554,7 +593,7 @@
       n, wp, kwp, spec, purchase, delivered, weight, shipInfo, modCost, ship, inv, invCost, acKw, invCount, dcac: acKw > 0 ? kwp / acKw : null,
       cmp, cmpCost, mnt, mntCost, layout, asd, extRows, montage,
       positions, own, ext: extSum, total, cats,
-      eco: { prod, self, selfWanted, feed, savings, payback, bal20: savings * 20 - total }
+      eco: { prod, self, selfWanted, feed, savings, payback, bal20: savings * 20 - total, spec: kwp > 0 ? prod / kwp : num(E.specificYield), areas: areaRes, assigned }
     };
   }
 
@@ -1015,11 +1054,37 @@
       '<div class="row-actions"><button type="button" class="btn btn-soft" data-action="ext-add">' + icon('plus') + '<span>Externe Position hinzufügen</span></button></div>';
   }
 
+  function areaRow(x, i) {
+    const p = 'economy.areas.' + i;
+    const deg = (DIRS.find(d => d[0] === x.dir) || DIRS[0])[2];
+    return '<div class="area-row">' +
+      '<span class="compass" title="Ausrichtung"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17"/><text x="20" y="9">N</text>' +
+        '<g transform="rotate(' + deg + ' 20 20)"><path class="needle" d="M20 8 L24 21 L20 18 L16 21 Z"/></g></svg></span>' +
+      '<div class="area-main"><input class="inline-edit inline-strong" data-bind="' + p + '.name" data-type="text" value="' + esc(x.name) + '" aria-label="Name der Dachfläche" spellcheck="false">' +
+        '<span class="muted small"><span data-out="area.' + i + '.kwp"></span> · Faktor <b data-out="area.' + i + '.f"></b> · <span data-out="area.' + i + '.spec"></span></span></div>' +
+      '<div class="area-fields">' +
+        field({ label: 'Module', bind: p + '.modules', type: 'int', arrows: true, min: 0, max: 5000, disabled: state.economy.areas.length === 1, cls: 'field-qty' }) +
+        selectField({ label: 'Ausrichtung', bind: p + '.dir', rerender: 'economy', options: DIRS.map(d => [d[0], d[1]]) }) +
+        field({ label: 'Neigung', bind: p + '.tilt', type: 'int', suffix: '°', arrows: true, step: 5, min: 0, max: 90, cls: 'field-qty' }) +
+        '<div class="item-total"><span class="field-label">Ertrag</span><strong data-out="area.' + i + '.y"></strong></div>' +
+        '<button type="button" class="btn btn-icon btn-ghost" data-action="area-remove" data-idx="' + i + '" aria-label="Dachfläche entfernen"' + (state.economy.areas.length === 1 ? ' disabled' : '') + '>' + icon('trash') + '</button>' +
+      '</div></div>';
+  }
+
   function renderEconomy() {
     const E = state.economy;
     $('#economyBody').innerHTML =
+      '<div class="eco-mode"><span class="field-label">Ertrag berechnen</span>' + segmented('economy.yieldMode', [['avg', 'Mittelwert'], ['areas', 'Nach Dachflächen']], 'economy', 'segmented-wide') + '</div>' +
+      (E.yieldMode === 'areas'
+        ? '<div class="areas">' + E.areas.map(areaRow).join('') + '</div>' +
+          '<div class="row-actions"><button type="button" class="btn btn-soft btn-sm" data-action="area-add">' + icon('plus') + '<span>Dachfläche hinzufügen</span></button>' +
+          '<span class="muted small areas-note">Faktoren: Richtwerte Deutschland, Süd/30° = 100 %. Für genaue Werte PVGIS oder eine Simulation nutzen.</span></div>' +
+          '<div class="status-note" data-out-html="areasInfo"></div>'
+        : '') +
       '<div class="grid grid-4">' +
-        field({ label: 'Spez. Ertrag (kWh/kWp)', bind: 'economy.specificYield', suffix: 'kWh', arrows: true, step: 10, min: 0, hint: 'Aus der Simulation: 1.007' }) +
+        (E.yieldMode === 'areas'
+          ? field({ label: 'Standort-Ertrag Süd/30° (kWh/kWp)', bind: 'economy.baseYield', type: 'int', suffix: 'kWh', arrows: true, step: 10, min: 0, hint: 'Deutschland ca. 950–1.150 · <a href="https://re.jrc.ec.europa.eu/pvg_tools/de/" target="_blank" rel="noopener noreferrer">PVGIS</a>' })
+          : field({ label: 'Spez. Ertrag (kWh/kWp)', bind: 'economy.specificYield', suffix: 'kWh', arrows: true, step: 10, min: 0, hint: 'Mittelwert aller Flächen – Simulation: 1.007' })) +
         field({ label: 'Strompreis (ct/kWh)', bind: 'economy.priceCt', suffix: 'ct', arrows: true, step: 0.5, min: 0 }) +
         '<div class="field eco-self"><div class="label-row"><span class="field-label">Eigenverbrauch</span>' +
           '<div class="segmented segmented-xs" role="radiogroup" aria-label="Einheit Eigenverbrauch">' + [['kwh', 'kWh'], ['pct', '%']].map(o =>
@@ -1099,7 +1164,7 @@
     out.kwpSub = r.n + ' × ' + NF.nMax2.format(r.wp) + ' Wp';
     out.perKwp = r.kwp > 0 ? eur(r.total / r.kwp) : '–';
     out.yield = s.economy.enabled === false ? '–' : NF.n0.format(r.eco.prod) + ' kWh';
-    out.yieldSub = NF.n0.format(num(s.economy.specificYield)) + ' kWh/kWp';
+    out.yieldSub = (s.economy.yieldMode === 'areas' ? 'Ø ' : '') + NF.n0.format(r.eco.spec) + ' kWh/kWp' + (s.economy.yieldMode === 'areas' ? ' · ' + s.economy.areas.length + (s.economy.areas.length === 1 ? ' Dachfläche' : ' Dachflächen') : '');
     out.payback = Number.isFinite(r.eco.payback) ? NF.n1.format(r.eco.payback) + ' Jahre' : '–';
     out.paybackSub = 'Ersparnis ≈ ' + eur(r.eco.savings) + ' / Jahr';
     out.countHint = r.n >= s.settings.sliderMax ? 'Maximum erreicht – in den Einstellungen anpassbar' : r.n + ' Module · ' + NF.n2.format(r.kwp) + ' kWp';
@@ -1204,6 +1269,19 @@
     const ePct = v => r.eco.prod > 0 ? ' (' + NF.n1.format(v / r.eco.prod * 100) + ' %)' : '';
     out.ecoSelf = NF.n0.format(r.eco.self) + ' kWh' + ePct(r.eco.self);
     out.ecoFeed = NF.n0.format(r.eco.feed) + ' kWh' + ePct(r.eco.feed);
+    if (r.eco.areas) {
+      r.eco.areas.forEach((a, i) => {
+        out['area.' + i + '.f'] = NF.n0.format(a.f * 100) + ' %';
+        out['area.' + i + '.spec'] = NF.n0.format(a.spec) + ' kWh/kWp';
+        out['area.' + i + '.y'] = NF.n0.format(a.y) + ' kWh';
+        out['area.' + i + '.kwp'] = NF.n2.format(a.kwp) + ' kWp';
+      });
+      if (s.economy.areas.length === 1) syncBound('economy.areas.0.modules', null);
+      const as = r.eco.assigned;
+      html.areasInfo = (as === r.n ? statusNote('good', 'Alle <strong>' + r.n + ' Module</strong> sind Dachflächen zugeordnet · Ø <strong>' + NF.n0.format(r.eco.spec) + ' kWh/kWp</strong> · <strong>' + NF.n0.format(r.eco.prod) + ' kWh</strong> pro Jahr')
+        : as < r.n ? statusNote('warn', '<strong>' + (r.n - as) + ' Module</strong> sind keiner Dachfläche zugeordnet – sie werden mit dem Durchschnitt der Flächen gerechnet.')
+        : statusNote('warn', 'Den Dachflächen sind <strong>' + as + ' Module</strong> zugeordnet, geplant sind aber nur <strong>' + r.n + '</strong> – die Flächen werden anteilig gekürzt.'));
+    }
     out.ecoSelfHint = s.economy.selfMode === 'kwh'
       ? (r.eco.selfWanted > r.eco.prod ? 'Mehr als der Ertrag – begrenzt auf ' + NF.n0.format(r.eco.prod) + ' kWh' : '≈ ' + NF.n1.format(r.eco.prod > 0 ? r.eco.self / r.eco.prod * 100 : 0) + ' % des Jahresertrags')
       : '≈ ' + NF.n0.format(r.eco.self) + ' kWh pro Jahr';
@@ -1639,6 +1717,14 @@
         if (await confirmBox('Position entfernen?', '„' + (it.label || 'Position') + '“ wird aus der Planung entfernt.', 'Entfernen')) { state.externals.splice(idx, 1); renderLabor(); update(); }
         break;
       }
+      case 'area-add': {
+        const E = state.economy, n = state.modules.count;
+        const used = E.areas.reduce((s2, x) => s2 + Math.max(0, Math.round(num(x.modules))), 0);
+        E.areas.push({ id: uid(), name: 'Dachfläche ' + (E.areas.length + 1), modules: Math.max(0, n - used), dir: 'O', tilt: 35 });
+        renderEconomy(); update();
+        break;
+      }
+      case 'area-remove': state.economy.areas.splice(idx, 1); renderEconomy(); update(); break;
       case 'eco-mode': {
         const E = state.economy, v = a.dataset.value;
         if (E.selfMode !== v) {

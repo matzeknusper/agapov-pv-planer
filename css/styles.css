@@ -784,6 +784,19 @@ details.more[open] > summary { margin-bottom: 12px; color: var(--accent-text); }
 .empty-note { padding: 16px; text-align: center; color: var(--ink-3); font-size: 13.5px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); list-style: none; }
 
 /* ---------- Wirtschaftlichkeit ---------- */
+.eco-mode { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.areas { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.area-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }
+.area-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.area-main b { color: var(--ink); font-weight: 650; }
+.area-fields { display: flex; align-items: flex-end; gap: 10px; }
+.area-fields .select-wrap { min-width: 130px; }
+.compass svg { width: 44px; height: 44px; display: block; }
+.compass circle { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.compass text { fill: var(--ink-3); font-size: 7px; font-weight: 700; text-anchor: middle; font-family: var(--font); }
+.compass .needle { fill: var(--accent); }
+.areas-note { align-self: center; }
+#economyBody [data-out-html="areasInfo"] { margin-bottom: 16px; }
 .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 18px; }
 .segmented-xs { padding: 2px; border-radius: 8px; }
 .segmented-xs button { height: 22px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
@@ -1080,6 +1093,14 @@ details.more[open] > summary { margin-bottom: 12px; color: var(--accent-text); }
   .buy-row, .buy-row > .field { width: 100%; }
   .st-grid { grid-template-columns: minmax(0, 1fr); }
   .asd-grid { grid-template-columns: minmax(0, 1fr); }
+  .area-row { grid-template-columns: 40px minmax(0, 1fr); position: relative; padding-right: 48px; }
+  .compass svg { width: 40px; height: 40px; }
+  .area-fields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-right: -36px; }
+  .area-fields > .field:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }
+  .area-fields .item-total { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; padding-top: 2px; }
+  .area-fields .item-total strong { height: auto; }
+  .area-fields .select-wrap { min-width: 0; }
+  .area-fields > .btn-icon { position: absolute; top: 8px; right: 6px; }
   .asd-name { max-width: 240px; }
   .buy-row .segmented-wide { width: 100%; }
   .select-lg select { font-size: 14px; }

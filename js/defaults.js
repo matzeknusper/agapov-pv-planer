@@ -167,7 +167,7 @@
           desc: '– Neuer Zählerschrank (wahrscheinlich im Keller)\n– Komplette Verkabelung und Anschluss der Anlage\n– Anmeldung beim Netzbetreiber/MaStR\n– Inbetriebnahme',
           qty: 1, price: 5000, category: 'electrical', enabled: true }
       ],
-      economy: { enabled: true, specificYield: 1007, priceCt: 35, selfMode: 'kwh', selfKwh: 6930, selfPct: 40, feedCt: 7.3 }, // Eigenverbrauch in kWh/Jahr oder % (6.930 kWh = 40 % von 17.325 kWh)
+      economy: { enabled: true, yieldMode: 'avg', baseYield: 1050, areas: [{ id: 'area1', name: 'Dachfläche 1', modules: 37, dir: 'S', tilt: 35 }], specificYield: 1007, priceCt: 35, selfMode: 'kwh', selfKwh: 6930, selfPct: 40, feedCt: 7.3 }, // Eigenverbrauch in kWh/Jahr oder % (6.930 kWh = 40 % von 17.325 kWh)
       settings: {
         theme: 'dark',
         sliderMax: 100,

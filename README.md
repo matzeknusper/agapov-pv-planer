@@ -35,6 +35,9 @@ Danach im Browser http://localhost:8765 öffnen.
   - Unter 119 € Warenwert berechnet dachbaustoffe.de einen Mindermengenzuschlag.
   - Die Preise sind einstellbar, Stand 03.10.2026 bei dachbaustoffe.de.
 - **Montage:** `MAX(Mindestbetrag; €/kWp × RUNDEN(Module × Wp-Basis)/1000)`, wie in der Excel. €/kWp, Mindestbetrag und Wp-Basis sind einstellbar.
+- **Wirtschaftlichkeit:** Den Ertrag rechnest du entweder mit einem **Mittelwert** in kWh/kWp (z. B. aus einer Simulation) oder **nach Dachflächen**.
+  - Bei Dachflächen gibst du je Fläche Modulanzahl, Ausrichtung (N/NO/O/SO/S/SW/W/NW) und Neigung an. Die Faktoren sind Richtwerte für Deutschland, Süd/30° = 100 %.
+  - Den Eigenverbrauch stellst du wahlweise in kWh/Jahr oder % ein.
 - **Live-Kostenaufteilung** (Donut und Positionsliste), Stückliste, CSV-Export und Druck/PDF.
 - **Themes:** System, Hell, Dunkel, Material, Glass, Frost, iOS, Solar.
 - **Export/Import:** einzelne Konfiguration oder komplettes Backup als JSON.
